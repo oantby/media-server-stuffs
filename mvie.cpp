@@ -95,15 +95,18 @@ void update_version() {
 	#endif
 	
 	// first, read in the current version number.
-	uint16_t version;
-	if (read(fd, (void *)&version, 2) != 2) {
+	uint16_t version, nversion;
+	if (read(fd, (void *)&nversion, 2) != 2) {
 		cerr << "version read failed" << endl;
 		return;
 	}
+	version = ntohs(nversion);
 	
 	version++;
 	// skip 0, if we overflowed.
 	if (!version) version++;
+	
+	nversion = htons(version);
 	
 	char buf[CHANGELOG_SIZ];
 	read(fd, buf, 1); // throw away a delimiter.
@@ -113,7 +116,7 @@ void update_version() {
 		return;
 	}
 	
-	pwrite(fd, (void *)&version, 2, 0);
+	pwrite(fd, (void *)&nversion, 2, 0);
 	lseek(fd, 3, SEEK_SET);
 	
 	char *f, *b = buf;
