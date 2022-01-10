@@ -197,6 +197,11 @@ static void heartbeat(in_addr_t addr, short port, bool convert = false) {
 	struct sockaddr_in client;
 	memset(&client, 0, sizeof(client));
 	
+	static uint16_t data_version;
+	static time_t last_version_check = 0;
+	
+	time_t now = time(NULL);
+	
 	client.sin_family = AF_INET;
 	client.sin_port = convert ? htons(port) : port;
 	client.sin_addr.s_addr = addr;
@@ -225,16 +230,22 @@ static void heartbeat(in_addr_t addr, short port, bool convert = false) {
 	}
 	
 	// set data version
-	if (*Ap.changelogPath) {
+	if (last_version_check + 60 > now) {
+		// use cached version, to minimize disk use.
+		*(uint16_t *)&buf[5] = data_version;
+	} else if (*Ap.changelogPath) {
 		// prevent memory failures due to disappearing log etc.
 		int fd = open(Ap.changelogPath, O_RDONLY);
 		if (fd == -1) {
 			log(LVL1, "Failed to open changelog: %s", strerror(errno));
 			*(uint16_t *)&buf[5] = 0;
 		} else {
-			if (read(fd, buf + 5, 2) != 2) {
+			if (read(fd, &data_version, 2) != 2) {
 				*(uint16_t *)&buf[5] = 0;
 				log(LVL1, "Didn't read 2-byte version");
+			} else {
+				*(uint16_t *)&buf[5] = data_version;
+				last_version_check = now;
 			}
 			close(fd);
 		}
