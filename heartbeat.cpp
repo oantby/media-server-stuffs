@@ -101,7 +101,7 @@ struct {
 	char pidPath[100];
 	char statusDownPath[100];
 	char statusBackupPath[100];
-	void *changelog;
+	char changelogPath[100];
 	// current DATA version - not CURRENT_VERSION.
 	uint16_t currentVersion;
 	
@@ -225,23 +225,19 @@ static void heartbeat(in_addr_t addr, short port, bool convert = false) {
 	}
 	
 	// set data version
-	if (Ap.changelog) {
+	if (*Ap.changelogPath) {
 		// prevent memory failures due to disappearing log etc.
-		struct sigaction act;
-		memset(&act, 0, sizeof(act));
-		
-		act.sa_handler = interrupt;
-		sigemptyset (&act.sa_mask);
-		
-		sigaction(SIGBUS, &act, NULL);
-		
-		if (!setjmp(Ap.jbuf)) {
-			*(uint16_t *)&buf[5] = *(uint16_t *)Ap.changelog;
-		} else {
+		int fd = open(Ap.changelogPath, O_RDONLY);
+		if (fd == -1) {
+			log(LVL1, "Failed to open changelog: %s", strerror(errno));
 			*(uint16_t *)&buf[5] = 0;
+		} else {
+			if (read(fd, buf + 5, 2) != 2) {
+				*(uint16_t *)&buf[5] = 0;
+				log(LVL1, "Didn't read 2-byte version");
+			}
+			close(fd);
 		}
-		act.sa_handler = SIG_DFL;
-		sigaction(SIGBUS, &act, NULL);
 	} else {
 		*(uint16_t *)&buf[5] = 0;
 	}
@@ -297,41 +293,7 @@ void process_args(int argc, char **argv) {
 				Ap.myAddr = inet_addr(optarg);
 				break;
 			case 'c':
-				{
-					int fd = open(optarg, O_RDWR | O_CREAT,
-						S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-					if (fd == -1) {
-						log(LVL1, "Failed to open changelogpath: %s", strerror(errno));
-						exit(1);
-					}
-					
-					// make sure the file is at least CHANGELOG_SIZ bytes for version + changelog.
-					#ifdef __linux__
-					if ((errno = fallocate(fd, 0, 0, CHANGELOG_SIZ)) != 0) {
-						log(LVL1, "fallocate failed: %s", strerror(errno));
-						exit(1);
-					}
-					#else
-					// on mac, we need to write data into the space, if not empty.
-					{
-						off_t t = lseek(fd, 0, SEEK_END);
-						if (t < CHANGELOG_SIZ) {
-							char buf[CHANGELOG_SIZ] = {0};
-							write(fd, buf, CHANGELOG_SIZ - t);
-						}
-						lseek(fd, 0, SEEK_SET);
-					}
-					#endif
-					
-					Ap.changelog = mmap(NULL, CHANGELOG_SIZ, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-					
-					if (!Ap.changelog) {
-						log(LVL1, "mmap failed: %s", strerror(errno));
-						exit(1);
-					}
-					
-					close(fd);
-				}
+				strcpy(Ap.changelogPath, optarg);
 				break;
 			case 'd':
 				{
