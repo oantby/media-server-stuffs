@@ -1,3 +1,11 @@
+/*
+This is a setuid binary to copy a given file to the
+media server (where everything is root:root), then updating the
+data version in the changelog and adding this change to the version history.
+
+see usage for information on changelog, data dir, etc.
+*/
+
 #include <iostream>
 #include <libgen.h>
 #include <unistd.h>
@@ -10,7 +18,6 @@ using namespace std;
 #define CL_DEFAULT "/DataStore/Videos-HQ/.well-known/version.txt"
 #define DIR_DEFAULT "/DataStore/Videos-HQ/"
 
-// this is a setuid binary to copy the file as root and update the changelog
 char Dir[1024] = {0};
 char changeLog[1024] = {0};
 char source[1024] = {0};
@@ -78,6 +85,11 @@ void update_version() {
 		return;
 	}
 	
+	// 1: for my setup, fallocate() won't actually work, as ZFS doesn't support
+	// it apparently.
+	// 2: consideration: as I dropped the mmap() from heartbeat.cpp, there's
+	// not really a need to keep this a specific size anymore; we could keep
+	// history indefinitely.
 	#ifdef __linux__
 	if ((errno = fallocate(fd, 0, 0, CHANGELOG_SIZ)) != 0) {
 		perror("fallocate()");
