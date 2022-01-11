@@ -677,6 +677,22 @@ int main(int argc, char **argv) {
 		n = recvfrom(Ap.sockfd, (char *)buf, sizeof(buf), MSG_WAITALL, (struct sockaddr *)&client_addr, &clilen);
 		sigprocmask(SIG_BLOCK, &sigset, NULL); // make sigalrm wait until we finish processing this request.
 		
+		// check for 127.0.0.0/16
+		if ((client_addr.sin_addr.s_addr & 0xffff) == 0x7f) {
+			log(LVL1, "Processing admin request");
+			if (n > 0) {
+				if (buf[0] == 'v') {
+					Ap.logLvl <<= 1;
+					Ap.logLvl++;
+					log(LVL2, "Log level increased to %d", Ap.logLvl);
+				} else if (buf[0] == 'q') {
+					Ap.logLvl >>= 1;
+					log(LVL2, "Log level decreased to %d", Ap.logLvl);
+				}
+			}
+			continue;
+		}
+		
 		if ((now = time(NULL)) > lastMsg + 60) {
 			log(LVL1, "No messages in 60s.  I suspect I've lost connection.  Closing out.");
 			replaceMe(argc, argv);
