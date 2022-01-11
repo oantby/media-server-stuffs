@@ -109,6 +109,8 @@ struct {
 	
 	in_addr_t hbclient;
 	
+	uint_fast16_t cache_exp;
+	
 	int sockfd;
 	
 	Client *known_clients;
@@ -230,7 +232,7 @@ static void heartbeat(in_addr_t addr, short port, bool convert = false) {
 	}
 	
 	// set data version
-	if (last_version_check + 60 > now) {
+	if (last_version_check + Ap.cache_exp > (uint_fast32_t)now) {
 		// use cached version, to minimize disk use.
 		*(uint16_t *)&buf[5] = data_version;
 	} else if (*Ap.changelogPath) {
@@ -271,7 +273,7 @@ static void interrupt(int signal) {
 
 void usage(char **argv) {
 	cerr << "Usage: " << argv[0] << " [ -qvri ] [ -a address ] [ -p port ] "
-		"[ -P pidpath ] [ -f confpath ] [ -s downpath ] -d ip[:port]\n\n"
+		"[ -e cache_exp ] [ -P pidpath ] [ -f confpath ] [ -s downpath ] -d ip[:port]\n\n"
 		"-d ip[:port]\n\tSet destination ip [and port]\n"
 		"-q\n\tQuiet.  reduces logging level by 1\n"
 		"-v\n\tVerbose.  Increases logging level by 1\n"
@@ -280,6 +282,7 @@ void usage(char **argv) {
 		"Meaningless without -f confpath\n"
 		"-a address\n\tSet the bind address.  Default is to let the OS decide\n"
 		"-c changelogpath\n\tSet path for media version/changelog\n"
+		"-e cache_exp\n\tSet data version cache expiration in seconds (default: 60)\n"
 		"-p port\n\tSet bind port.  Default is 8001\n"
 		"-P pidpath\n\tSet the path to nginx PID for HUP. "
 		"Meaningless without -f confpath\n"
@@ -295,8 +298,9 @@ void process_args(int argc, char **argv) {
 	Ap.logLvl = LVL1;
 	Ap.myport = DEFAULT_PORT;
 	Ap.cliport = htons(DEFAULT_PORT);
+	Ap.cache_exp = 60;
 	
-	while ((c = getopt(argc, argv, "vqhia:c:d:f:p:P:s:r")) != -1) {
+	while ((c = getopt(argc, argv, "vqhia:c:e:d:f:p:P:s:r")) != -1) {
 		log(LVL4, "getopt returned %d", c);
 		switch (c) {
 			case 'a':
@@ -318,6 +322,9 @@ void process_args(int argc, char **argv) {
 						*(((uint8_t *)&Ap.hbclient) + 1), *(((uint8_t *)&Ap.hbclient) + 2),
 						*(((uint8_t *)&Ap.hbclient) + 3));
 				}
+				break;
+			case 'e':
+				Ap.cache_exp = atol(optarg);
 				break;
 			case 'p':
 				Ap.myport = atol(optarg);
