@@ -266,9 +266,30 @@ static void heartbeat(in_addr_t addr, short port, bool convert = false) {
 	}
 }
 
+static void printStatus() {
+	time_t now = time(NULL);
+	
+	log(LVL1, "Log Level: %d (LVL%d)", Ap.logLvl,
+		Ap.logLvl & LVL4 ? 4 : (Ap.logLvl & LVL3 ? 3 :
+		(Ap.logLvl & LVL2 ? 2 : (Ap.logLvl & LVL1 ? 1 : 0))));
+	log(LVL1, "Received HB clients: %d", Ap.kc_count);
+	for (int i = 0; i < Ap.kc_count; i++) {
+		Client *c = Ap.known_clients + i;
+		log(LVL2, "\tClient: %s:%d [down=%d, backup=%d, load=%.02f, version=%d, "
+			"last_hb=%ld (%ld seconds ago)]", c->addr_string,
+			ntohs(c->port), c->down, c->backup, c->load, c->version, c->lastHB,
+			now - c->lastHB);
+	}
+	
+	struct in_addr my_addr;
+	my_addr.s_addr = Ap.myAddr;
+	log(LVL1, "Bind address: %s:%d", inet_ntoa(my_addr), Ap.myport);
+}
+
 static void interrupt(int signal) {
 	if (signal == SIGALRM && Ap.hbclient) heartbeat(Ap.hbclient, Ap.cliport);
 	if (signal == SIGBUS) longjmp(Ap.jbuf, 1);
+	if (signal == SIGUSR1) printStatus();
 }
 
 void usage(char **argv) {
@@ -587,6 +608,7 @@ int main(int argc, char **argv) {
 	sigemptyset (&act.sa_mask);
 	
 	sigaction(SIGALRM, &act, NULL);
+	sigaction(SIGUSR1, &act, NULL);
 	
 	uint8_t buf[BUF_SIZ];
 	struct sockaddr_in my_addr, client_addr;
@@ -642,6 +664,7 @@ int main(int argc, char **argv) {
 	sigset_t sigset;
 	sigemptyset(&sigset);
 	sigaddset(&sigset, SIGALRM);
+	sigaddset(&sigset, SIGUSR1);
 	
 	while (true) {
 		
