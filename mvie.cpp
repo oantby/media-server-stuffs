@@ -129,6 +129,7 @@ void update_version() {
 	}
 	
 	pwrite(fd, (void *)&nversion, 2, 0);
+	pwrite(fd, (void *)"\n", 1, 2);
 	lseek(fd, 3, SEEK_SET);
 	
 	char *f, *b = buf;
