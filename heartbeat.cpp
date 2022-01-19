@@ -911,6 +911,7 @@ void usage(char **argv) {
 	cerr << "Usage: " << argv[0] << " [ -qvri ] [ -a address ] [ -p port ] "
 		"[ -e cache_exp ] [ -P pidpath ] [ -f confpath ] [ -s downpath ] -d ip[:port]\n\n"
 		"-d ip[:port]\n\tSet destination ip [and port]\n"
+		"-D dir\n\tSet starting directory for media files\n"
 		"-q\n\tQuiet.  reduces logging level by 1\n"
 		"-v\n\tVerbose.  Increases logging level by 1\n"
 		"-r\n\tSet this node as the pRimary (-p and -P were already used)\n"
