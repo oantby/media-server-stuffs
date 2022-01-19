@@ -17,6 +17,7 @@
 #include <sys/ioctl.h>
 #include <setjmp.h>
 #include <fcntl.h>
+#include <math.h>
 #include <sys/mman.h>
 #ifdef __linux__
 	#include <sys/sysinfo.h>
