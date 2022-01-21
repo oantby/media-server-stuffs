@@ -541,6 +541,9 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 					return;
 				}
 				
+				// make the file mode 644
+				fchmod(Ap.xferFD, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+				
 				// we're going to allocate the whole size of the file off the
 				// bat so we can fill it in as we go.
 				uint64_t written = 0;
