@@ -138,6 +138,8 @@ struct {
 	
 	uint64_t retrieveSize;
 	
+	bool (*notifyFunc)(const char *, const char *);
+	
 	jmp_buf jbuf;
 	
 	time_t next_req_try;
@@ -164,6 +166,8 @@ struct {
 #endif
 
 static void interrupt(int signal);
+
+namespace pushover {bool notify(const char *m, const char *s = NULL);}
 
 void _log(const char *file, int line, unsigned level, const char *msg, ...) {
 	if (!(Ap.logLvl & level)) return;
@@ -944,7 +948,7 @@ void process_args(int argc, char **argv) {
 	Ap.cache_exp = 60;
 	strcpy(Ap.tmpFilePath, "/tmp");
 	
-	while ((c = getopt(argc, argv, "vqhia:c:e:d:D:f:p:P:s:t:r")) != -1) {
+	while ((c = getopt(argc, argv, "vqhia:c:e:d:D:f:n:p:P:s:t:r")) != -1) {
 		log(LVL4, "getopt returned [%c]", (char)c);
 		switch (c) {
 			case 'a':
@@ -972,6 +976,17 @@ void process_args(int argc, char **argv) {
 				break;
 			case 'e':
 				Ap.cache_exp = atol(optarg);
+				break;
+			case 'n':
+				switch (*optarg) {
+					case 'p':
+						Ap.notifyFunc = pushover::notify;
+						break;
+					default:
+						log(LVL1, "Invalid notification mechanism [%s]", optarg);
+						usage(argv);
+						break;
+				}
 				break;
 			case 'p':
 				Ap.myport = atol(optarg);
@@ -1180,6 +1195,17 @@ void checkClients() {
 					Ap.known_clients[idx].backup,
 					Ap.known_clients[idx].weightSet ?
 					Ap.known_clients[idx].weight : 1);
+				
+				if (Ap.notifyFunc) {
+					char temp[200];
+					snprintf(temp, sizeof(temp), "Updated %s to down=%d, backup=%d, weight=%d",
+					Ap.known_clients[idx].addr_string,
+					Ap.known_clients[idx].down,
+					Ap.known_clients[idx].backup,
+					Ap.known_clients[idx].weightSet ?
+					Ap.known_clients[idx].weight : 1);
+					(*Ap.notifyFunc)(temp, "Heartbeat Update");
+				}
 			}
 			
 			
