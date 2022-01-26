@@ -1,4 +1,5 @@
 .PHONY : all
 
 all : heartbeat
-heartbeat: heartbeat.cpp pushover_notify.cpp json.hpp
+heartbeat: heartbeat.cpp pushover_notify.cpp
+	c++ $(CXXFLAGS) $^ $(LDFLAGS) -o $@

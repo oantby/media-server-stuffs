@@ -955,6 +955,9 @@ void process_args(int argc, char **argv) {
 				// set bind address
 				Ap.myAddr = inet_addr(optarg);
 				break;
+			case 'b':
+				strcpy(Ap.statusBackupPath, optarg);
+				break;
 			case 'c':
 				strcpy(Ap.changelogPath, optarg);
 				break;
