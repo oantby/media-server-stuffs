@@ -19,5 +19,5 @@ if ! echo 'int main(){}' | g++ -x c++ -lcurl -o /dev/null - &>/dev/null; then
 fi
 
 echo 'CXXFLAGS=-Wall -std='$STD > Makefile
-echo 'LDFLAGS=-lcurl' >> Makefile
+echo 'LDLIBS=-lcurl' >> Makefile
 cat Makefile.tmpl >> Makefile
