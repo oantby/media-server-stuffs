@@ -1,0 +1,23 @@
+#!/bin/bash
+
+STD=
+
+echo "Checking for C++20 support"
+if echo 'int main(){}' | g++ -std=c++20 -x c++ -o /dev/null - &>/dev/null; then
+	STD=c++20
+elif echo 'int main(){}' | g++ -std=c++2a -x c++ -o /dev/null - &>/dev/null; then
+	STD=c++2a
+else
+	echo >&2 "C++20 unsupported"
+	exit 1
+fi
+
+echo "Checking for libcurl"
+if ! echo 'int main(){}' | g++ -x c++ -lcurl -o /dev/null - &>/dev/null; then
+	echo >&2 "No libcurl found"
+	exit 1
+fi
+
+echo 'CXXFLAGS=-Wall -std='$STD > Makefile
+echo 'LDFLAGS=-lcurl' >> Makefile
+cat Makefile.tmpl >> Makefile
