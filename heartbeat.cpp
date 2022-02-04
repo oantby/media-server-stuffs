@@ -1370,8 +1370,6 @@ int main(int argc, char **argv) {
 			continue;
 		}
 		
-		lastMsg = now;
-		
 		if (n <= 0) {
 			log(LVL2, "recvfrom returned %d", n);
 			if (errno) {
@@ -1419,6 +1417,8 @@ int main(int argc, char **argv) {
 				log(LVL2, "Sent unsupported version to %s", inet_ntoa(client_addr.sin_addr));
 				break;
 		}
+
+		lastMsg = time(NULL);
 		
 	}
 	
