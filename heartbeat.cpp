@@ -322,12 +322,11 @@ static void file_req() {
 						if (Ap.xferTS.tv_sec == 0) {
 							futimes(Ap.xferFD, NULL);
 						} else {
-							struct timeval **times = (struct timeval **)malloc(sizeof(struct timeval *) * 2);
-							times[0] = &Ap.xferTS;
-							times[1] = &Ap.xferTS;
+							struct timeval times[2];
+							times[0] = Ap.xferTS;
+							times[1] = Ap.xferTS;
 							
-							futimes(Ap.xferFD, *times);
-							free(times);
+							futimes(Ap.xferFD, times);
 						}
 						close(Ap.xferFD);
 						Ap.xferFD = -1;
@@ -580,9 +579,9 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				memset(&Ap.xferTS, 0, sizeof(Ap.xferTS));
 				if (n >= (uint32_t)(22 + fnlen)) {
 					// sender is updated enough to send a timestamp.
-					Ap.xferTS.tv_sec = ((uint64_t)ntohl(atol(buf + 14 + fnlen)) << 32)
-						+ ntohl(atol(buf + 18 + fnlen));
-					Ap.xferTS.tv_usec = ntohl(atol(buf + 22 + fnlen));
+					Ap.xferTS.tv_sec = ((uint64_t)ntohl(*(uint32_t *)(buf + 14 + fnlen)) << 32)
+						+ ntohl(*(uint32_t *)(buf + 18 + fnlen));
+					Ap.xferTS.tv_usec = ntohl(*(uint32_t *)(buf + 22 + fnlen));
 				}
 				
 				// we're going to allocate the whole size of the file off the
@@ -614,12 +613,11 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 					if (Ap.xferTS.tv_sec == 0) {
 						futimes(Ap.xferFD, NULL);
 					} else {
-						struct timeval **times = (struct timeval **)malloc(sizeof(struct timeval *) * 2);
-						times[0] = &Ap.xferTS;
-						times[1] = &Ap.xferTS;
+						struct timeval times[2];
+						times[0] = Ap.xferTS;
+						times[1] = Ap.xferTS;
 						
-						futimes(Ap.xferFD, *times);
-						free(times);
+						futimes(Ap.xferFD, times);
 					}
 					close(Ap.xferFD);
 					Ap.xferFD = -1;
@@ -807,12 +805,11 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 					if (Ap.xferTS.tv_sec == 0) {
 						futimes(Ap.xferFD, NULL);
 					} else {
-						struct timeval **times = (struct timeval **)malloc(sizeof(struct timeval *) * 2);
-						times[0] = &Ap.xferTS;
-						times[1] = &Ap.xferTS;
+						struct timeval times[2];
+						times[0] = Ap.xferTS;
+						times[1] = Ap.xferTS;
 						
-						futimes(Ap.xferFD, *times);
-						free(times);
+						futimes(Ap.xferFD, times);
 					}
 					close(Ap.xferFD);
 					Ap.xferFD = -1;
