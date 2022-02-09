@@ -151,6 +151,8 @@ struct {
 	int sockfd;
 	int xferFD;
 	
+	struct timeval xferTS;
+	
 	Client *known_clients;
 	int kc_count;
 } Ap;
@@ -468,7 +470,7 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				
 				log(LVL3, "Version [%d] Path [%s]", reqVer, path.c_str());
 				
-				size_t respLen = path.size() + 14;
+				size_t respLen = path.size() + 26;
 				char *resp = (char *)calloc(1, respLen);
 				resp[0] = CURRENT_VERSION;
 				resp[1] = OP_XFER_INFO;
@@ -484,8 +486,17 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				struct stat info;
 				memset(&info, 0, sizeof(info));
 				if (stat(path.c_str(), &info) != -1) {
-					*(uint32_t *)&resp[6] = ntohl((uint32_t)(info.st_size >> 32));
-					*(uint32_t *)&resp[10] = ntohl((uint32_t)(info.st_size & 0xffffffff));
+					// write in the file size.
+					// note: htonll defined on some but not all of my compilers,
+					// so we do it by hand here.
+					*(uint32_t *)&resp[6] = htonl((uint32_t)(info.st_size >> 32));
+					*(uint32_t *)&resp[10] = htonl((uint32_t)(info.st_size & 0xffffffff));
+					
+					// write in the modification time. 64-bit seconds, 32-bit microseconds.
+					*(uint32_t *)&resp[14 + path.size()] = htonl((uint32_t)(info.st_mtimespec.tv_sec >> 32));
+					*(uint32_t *)&resp[18 + path.size()] = htonl((uint32_t)(info.st_mtimespec.tv_sec & 0xffffffff));
+					
+					*(uint32_t *)&resp[22 + path.size()] = htonl((uint32_t)(info.st_mtimespec.tv_nsec / 1000));
 					
 					if (sendto(Ap.sockfd, resp, respLen, MSG_CONFIRM,
 						(struct sockaddr *)&client, sizeof(client)) > 0) {
@@ -548,6 +559,15 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				// make the file mode 644
 				fchmod(Ap.xferFD, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 				
+				// save off the timestamp to update when we're done writing.
+				memset(&Ap.xferTS, 0, sizeof(Ap.xferTS));
+				if (n >= 22 + fnlen) {
+					// sender is updated enough to send a timestamp.
+					Ap.xferTS.tv_sec = ((uint64_t)ntohl(atol(buf + 14 + fnlen)) << 32)
+						+ ntohl(atol(buf + 18 + fnlen));
+					Ap.xferTS.tv_usec = ntohl(atol(buf + 22 + fnlen));
+				}
+				
 				// we're going to allocate the whole size of the file off the
 				// bat so we can fill it in as we go.
 				uint64_t written = 0;
@@ -574,6 +594,16 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				
 				if (Ap.retrieveSize == 0) {
 					Ap.retrieveStatus = STAT_DONE;
+					if (Ap.xferTS.tv_sec == 0) {
+						futimes(Ap.xferFD, NULL);
+					} else {
+						struct timeval **times = (struct timeval **)malloc(sizeof(struct timeval *) * 2);
+						times[0] = &Ap.xferTS;
+						times[1] = &Ap.xferTS;
+						
+						futimes(Ap.xferFD, *times);
+						free(times);
+					}
 					close(Ap.xferFD);
 					Ap.xferFD = -1;
 					log(LVL1, "File size was 0; marking done");
