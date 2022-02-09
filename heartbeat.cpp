@@ -319,6 +319,16 @@ static void file_req() {
 					}
 					if (done) {
 						Ap.retrieveStatus = STAT_DONE;
+						if (Ap.xferTS.tv_sec == 0) {
+							futimes(Ap.xferFD, NULL);
+						} else {
+							struct timeval **times = (struct timeval **)malloc(sizeof(struct timeval *) * 2);
+							times[0] = &Ap.xferTS;
+							times[1] = &Ap.xferTS;
+							
+							futimes(Ap.xferFD, *times);
+							free(times);
+						}
 						close(Ap.xferFD);
 						Ap.xferFD = -1;
 						// nothing left to do on this round.
@@ -493,10 +503,17 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 					*(uint32_t *)&resp[10] = htonl((uint32_t)(info.st_size & 0xffffffff));
 					
 					// write in the modification time. 64-bit seconds, 32-bit microseconds.
+					#ifdef __linux__
+					*(uint32_t *)&resp[14 + path.size()] = htonl((uint32_t)(info.st_mtim.tv_sec >> 32));
+					*(uint32_t *)&resp[18 + path.size()] = htonl((uint32_t)(info.st_mtim.tv_sec & 0xffffffff));
+					
+					*(uint32_t *)&resp[22 + path.size()] = htonl((uint32_t)(info.st_mtim.tv_nsec / 1000));
+					#else
 					*(uint32_t *)&resp[14 + path.size()] = htonl((uint32_t)(info.st_mtimespec.tv_sec >> 32));
 					*(uint32_t *)&resp[18 + path.size()] = htonl((uint32_t)(info.st_mtimespec.tv_sec & 0xffffffff));
 					
 					*(uint32_t *)&resp[22 + path.size()] = htonl((uint32_t)(info.st_mtimespec.tv_nsec / 1000));
+					#endif
 					
 					if (sendto(Ap.sockfd, resp, respLen, MSG_CONFIRM,
 						(struct sockaddr *)&client, sizeof(client)) > 0) {
@@ -561,7 +578,7 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				
 				// save off the timestamp to update when we're done writing.
 				memset(&Ap.xferTS, 0, sizeof(Ap.xferTS));
-				if (n >= 22 + fnlen) {
+				if (n >= (uint32_t)(22 + fnlen)) {
 					// sender is updated enough to send a timestamp.
 					Ap.xferTS.tv_sec = ((uint64_t)ntohl(atol(buf + 14 + fnlen)) << 32)
 						+ ntohl(atol(buf + 18 + fnlen));
@@ -787,6 +804,16 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				}
 				if (done) {
 					Ap.retrieveStatus = STAT_DONE;
+					if (Ap.xferTS.tv_sec == 0) {
+						futimes(Ap.xferFD, NULL);
+					} else {
+						struct timeval **times = (struct timeval **)malloc(sizeof(struct timeval *) * 2);
+						times[0] = &Ap.xferTS;
+						times[1] = &Ap.xferTS;
+						
+						futimes(Ap.xferFD, *times);
+						free(times);
+					}
 					close(Ap.xferFD);
 					Ap.xferFD = -1;
 					log(LVL1, "File retrieval done");
