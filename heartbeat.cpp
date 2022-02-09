@@ -971,7 +971,8 @@ static void interrupt(int signal) {
 
 void usage(char **argv) {
 	cerr << "Usage: " << argv[0] << " [ -qvri ] [ -a address ] [ -p port ] "
-		"[ -e cache_exp ] [ -P pidpath ] [ -f confpath ] [ -s downpath ] -d ip[:port]\n\n"
+		"[ -e cache_exp ] [ -P pidpath ] [ -f confpath ] [ -s downpath ] -d ip[:port] "
+		"[ -b backup_path ]\n\n"
 		"-d ip[:port]\n\tSet destination ip [and port]\n"
 		"-D dir\n\tSet starting directory for media files\n"
 		"-q\n\tQuiet.  reduces logging level by 1\n"
@@ -987,6 +988,7 @@ void usage(char **argv) {
 		"Meaningless without -f confpath\n"
 		"-f confpath\n\tSet nginx config path to update based on client messages\n"
 		"-s downpath\n\tSet path that, if it exists, this node will be marked down\n"
+		"-b backup_path\n\tSet path that, if it exists, means this node is marked backup\n"
 		"-t tmppath\n\tWhere to store files being transferred in (same drive "
 		"as storage ensures fastest performance)\n\n";
 	exit(1);
