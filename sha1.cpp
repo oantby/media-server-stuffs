@@ -98,7 +98,7 @@ void SHA1::finish() {
 	lastBlock[lastBlockLen++] = 0x80;
 	// 0 the rest of the current block.
 	memset(lastBlock + lastBlockLen, 0, sizeof(lastBlock) - lastBlockLen);
-	if (lastBlockLen + 8 > sizeof(lastBlock)) {
+	if (lastBlockLen + 8 > (int)sizeof(lastBlock)) {
 		// this block is ready to ship. send it off.
 		processBlock(lastBlock);
 		// zero the block so our last one is ready.
@@ -141,7 +141,7 @@ SHA1::SHA1(string filename) {
 	}
 	int offset;
 	while (ifile.read((char *)buf, sizeof(buf))) {
-		for (offset = 0; offset < sizeof(buf); offset += 64) {
+		for (offset = 0; offset < (int)sizeof(buf); offset += 64) {
 			processBlock(buf + offset);
 		}
 	}
