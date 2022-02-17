@@ -1,4 +1,7 @@
 .PHONY : all
 
-all : heartbeat
+all : heartbeat verify
 heartbeat: heartbeat.cpp pushover_notify.cpp
+
+verify: LDLIBS=
+verify: verify.cpp log.o sha1.o
