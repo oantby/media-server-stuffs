@@ -5,3 +5,7 @@ heartbeat: heartbeat.cpp pushover_notify.cpp
 
 verify: LDLIBS=
 verify: verify.cpp log.o sha1.o
+
+.PHONY : clean
+clean:
+	rm -f *.o Makefile verify heartbeat
