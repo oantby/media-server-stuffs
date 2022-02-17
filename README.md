@@ -11,9 +11,9 @@ hobby media server setup. The setup runs roughly as follows:
 4. The data version is updated when `mvie` is used to copy a new file onto
    the **primary** data server. The primary data server reports itself as such
    to the heartbeat server, so the most correct version is known.
-5. As of now, all secondary servers do a full sync using a fancied-up `rsync`
-   every night. Future updates will result in live data sync when a heartbeat
-   client is informed by the heartbeat server that it is out-of-date.
+5. Secondary data servers are informed of the current version by the heartbeat
+   server, and request the updated file(s) from the primary server.
+6. Non-media files, support files, etc., are brought over by a nightly `rsync`.
 
 # The Stuffs
 
