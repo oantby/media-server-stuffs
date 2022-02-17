@@ -85,3 +85,16 @@ secondary to identify the files it needs to retrieve to get up-to-date in
 the future.
 
 See `usage()` or `mvie -h` for usage details.
+
+## verify
+
+Because my method of file transfer doesn't have any form of robust completeness
+check and could be subject to internet noise, malicious folks, etc., verify
+exists. A future version of `mvie` is expected to, in addition to moving
+`file` to `Movies/file`, create `Movies/.file.sha1` holding a checksum of
+`file`. This checksum will be copied to secondary servers via nightly rsync
+(the method by which video files used to be synced). Then, on some interval,
+`verify` runs, finds any newish files that have a checksum available, and
+verifies the files against the expected checksums. This avoids me trying to
+do a checksum as the file arrives or once it finishes and taking a huge
+time penalty in the process.
