@@ -14,6 +14,8 @@ see usage for information on changelog, data dir, etc.
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <fstream>
 #include "sha1.hpp"
 
@@ -193,6 +195,11 @@ int main(int argc, char **argv) {
 	// first, we're going to take ownership of the file.
 	if (chown(source, 0, 0) == -1) {
 		perror("chown");
+		return 1;
+	}
+	
+	if (chmod(source, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1) {
+		perror("chmod");
 		return 1;
 	}
 	
