@@ -11,6 +11,8 @@ see usage for information on changelog, data dir, etc.
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <fstream>
+#include "sha1.hpp"
 
 using namespace std;
 
@@ -147,6 +149,34 @@ void update_version() {
 	cout << "Version updated to " << (int)version << endl;
 }
 
+static void write_hash() {
+	SHA1 sha(string(Dir) + string(dest));
+	char *p = strrchr(dest, '/');
+	string hashFile = Dir;
+	if (p) {
+		p++;
+		char c = *p;
+		*p = 0;
+		hashFile += dest;
+		hashFile += '.';
+		*p = c;
+		hashFile += p;
+		hashFile += ".sha1";
+	} else {
+		hashFile += '.';
+		hashFile += dest;
+		hashFile += ".sha1";
+	}
+	
+	ofstream ofile(hashFile, ios::out|ios::trunc);
+	if (!ofile) {
+		cerr << "Failed to open hash file [" << hashFile << "]\n";
+		return;
+	}
+	ofile << sha.hex() << endl;
+	ofile.close();
+}
+
 int main(int argc, char **argv) {
 	process_args(argc, argv);
 	
@@ -188,6 +218,10 @@ int main(int argc, char **argv) {
 		
 		if (stat == 0) {
 			update_version();
+			// it's pretty inefficient that I'm waiting until now to do this
+			// todo: probably replace /bin/mv with my own read + write + remove,
+			// such that I can calculate the hash in transit.
+			write_hash();
 		}
 		
 		return stat;
