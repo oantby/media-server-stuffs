@@ -34,9 +34,10 @@ bool foreground = false;
 extern int optind;
 
 void usage(char **argv) {
-	cerr << "Usage: " << argv[0] << " [ -c changelogpath ] [ -d dest_dir ] source dest" << endl;
+	cerr << "Usage: " << argv[0] << " [ -f ] [ -c changelogpath ] [ -d dest_dir ] source dest" << endl;
 	cerr << "Program defaults are replaced by environment CHANGELOG and DIR, which are replaced by -c and -d" << endl;
 	cerr << "Program defaults (changelog, dir): (" << CL_DEFAULT << ", " << DIR_DEFAULT << ")\n";
+	cerr << "-f: run in foreground. By default, drops to background before file move begins\n";
 	exit(1);
 }
 
