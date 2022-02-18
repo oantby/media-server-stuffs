@@ -29,6 +29,7 @@ char Dir[1024] = {0};
 char changeLog[1024] = {0};
 char source[1024] = {0};
 char dest[1024] = {0};
+bool foreground = false;
 
 extern int optind;
 
@@ -49,13 +50,16 @@ void process_args(int argc, char **argv) {
 	if ((optarg = getenv("DIR"))) strcpy(Dir, optarg);
 	if ((optarg = getenv("CHANGELOG"))) strcpy(changeLog, optarg);
 	
-	while ((c = getopt(argc, argv, "c:d:")) != -1) {
+	while ((c = getopt(argc, argv, "c:d:f")) != -1) {
 		switch (c) {
 			case 'c':
 				strcpy(changeLog, optarg);
 				break;
 			case 'd':
 				strcpy(Dir, optarg);
+				break;
+			case 'f':
+				foreground = true;
 				break;
 			default:
 				usage(argv);
@@ -201,6 +205,36 @@ int main(int argc, char **argv) {
 	if (chmod(source, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1) {
 		perror("chmod");
 		return 1;
+	}
+	
+	if (!foreground) {
+		// we now daemonize, so the user doesn't have to remember nohup.
+		// this is always done unless explicitly requested in the foreground,
+		// as the general implication of this program is that it's going to
+		// run for awhile.
+		
+		// close stdin, stdout, stderr.
+		close(0);
+		close(1);
+		close(2);
+		pid_t p;
+		if ((p = fork()) > 0) {
+			// parent process. leave.
+			exit(0);
+		} else if (p < 0) {
+			exit(1);
+		}
+		
+		// child process. get a new session so we disconnect from terminal.
+		setsid();
+		
+		// now fork again to prevent tty reopening for good measure.
+		if ((p = fork()) > 0) {
+			// parent. leave.
+			exit(0);
+		} else if (p < 0) {
+			exit(1);
+		}
 	}
 	
 	pid_t pid;
