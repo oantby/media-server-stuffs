@@ -12,3 +12,12 @@ mvie: mvie.cpp sha1.o
 .PHONY : clean
 clean:
 	rm -f *.o Makefile verify heartbeat mvie
+
+.PHONY : install
+install: all
+	@if [ $$UID -ne 0 ]; then echo >&2 Must be run as root; exit 1; fi
+	mv verify /usr/local/bin/
+	mv heartbeat /usr/local/bin/
+	mv mvie /usr/local/bin/
+	chown root /usr/local/bin/mvie
+	chmod 4755 /usr/local/bin/mvie
