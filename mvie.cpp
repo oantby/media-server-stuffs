@@ -11,6 +11,9 @@ see usage for information on changelog, data dir, etc.
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/wait.h>
 #include <fstream>
 #include "sha1.hpp"
 
