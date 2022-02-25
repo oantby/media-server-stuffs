@@ -174,6 +174,20 @@ namespace pushover {bool notify(const char *m, const char *s = NULL);}
 void _log(const char *file, int line, unsigned level, const char *msg, ...) {
 	if (!(Ap.logLvl & level)) return;
 	
+	static int_fast8_t logTime = -1;
+	if (logTime == -1) {
+		// check if we're outputting to journalctl, which timestamps for us.
+		logTime = getenv("JOURNAL_STREAM") == NULL;
+	}
+	if (logTime) {
+		struct timeval tv;
+		memset(&tv, 0, sizeof(tv));
+		gettimeofday(&tv, NULL);
+		
+		char ds[100];
+		strftime(ds, sizeof(ds), "%Y-%m-%dT%H%M%S", localtime(&tv.tv_sec));
+		fprintf(stderr, "[%s.%d] ", ds, tv.tv_usec / 10000);
+	}
 	fprintf(stderr, "[%s:%d] ", file, line);
 	
 	va_list arglist;
