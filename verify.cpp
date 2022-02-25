@@ -33,6 +33,8 @@ forcing a re-sync.
 #include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <utime.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <string.h>
@@ -179,6 +181,12 @@ int main(int argc, char **argv) {
 			if (hash != sha.hex()) {
 				logger::log(LVL1, "Checksum mismatch: File [%s] expected [%s] calculated [%s]",
 					(curDir + "/" + ent->d_name).c_str(), hash.c_str(), sha.hex().c_str());
+				// change the timestamp on the file. this indicates to rsync
+				// that the file needs to be synced, while preserving any
+				// correct data here we may benefit from.
+				struct utimbuf newTime;
+				memset(&newTime, 0, sizeof(newTime));
+				utime((curDir + "/" + ent->d_name).c_str(), &newTime);
 			} else {
 				logger::log(LVL3, "File [%s] matched expected [%s]",
 					(curDir + "/" + ent->d_name).c_str(), hash.c_str());
