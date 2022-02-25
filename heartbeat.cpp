@@ -243,6 +243,11 @@ static void process_ack_v1(struct sockaddr_in client, char *buf, size_t n) {
 static void file_req() {
 	if (!Ap.retrieveVersion || Ap.retrieveVersion == ntohs(Ap.currentVersion)) {
 		// already up-to-date; just a routine call. return.
+		// do cleanup in the case a previous transfer got interrupted.
+		if (Ap.retrievedBlockStatus || Ap.xferFD > 0) {
+			log(LVL1, "Mixed transfer statuses (rsync overlap likely). Exiting");
+			exit(1);
+		}
 		return;
 	}
 	
