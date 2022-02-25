@@ -949,6 +949,12 @@ static void printStatus() {
 			now - c->lastHB);
 	}
 	
+	extern char **environ;
+	log(LVL3, "Environment:");
+	for (char **p = environ; *p; p++) {
+		log(LVL3, "\t%s", *p);
+	}
+	
 	struct in_addr my_addr;
 	my_addr.s_addr = Ap.myAddr;
 	log(LVL1, "Bind address: %s:%d", inet_ntoa(my_addr), Ap.myport);
