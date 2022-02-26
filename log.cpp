@@ -42,7 +42,7 @@ namespace logger {
 			
 			char ds[100];
 			strftime(ds, sizeof(ds), "%Y-%m-%dT%H%M%S", localtime(&tv.tv_sec));
-			fprintf(stderr, "[%s.%d] ", ds, tv.tv_usec / 10000);
+			fprintf(stderr, "[%s.%d] ", ds, (int)(tv.tv_usec / 10000));
 		}
 		fprintf(stderr, "[%s:%d] ", file, line);
 		
