@@ -21,3 +21,8 @@ fi
 echo 'CXXFLAGS=-Wall -std='$STD > Makefile
 echo 'LDLIBS=-lcurl' >> Makefile
 cat Makefile.tmpl >> Makefile
+echo >> Makefile
+
+if [[ $(uname) = "Linux" ]]; then
+	echo "lb_heartbeat: lb_heartbeat.cpp garp.o pushover_notify.o log.o" >> Makefile
+fi
