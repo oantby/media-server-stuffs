@@ -83,6 +83,7 @@ bool check_active() {
 			break;
 		}
 	}
+	pclose(f);
 	return ret;
 }
 
