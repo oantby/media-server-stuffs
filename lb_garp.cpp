@@ -91,6 +91,7 @@ bool set_active() {
 	if (check_active()) return true;
 	
 	logger::log(LVL1, "Setting myself as active");
+	if (!Ap.primary) pushover::notify("Backup taking over from LB", "Load Balancer Update");
 	
 	char buf[512];
 	snprintf(buf, sizeof(buf), "ip address add %s/24 dev %s", Ap.addr, Ap.interface);
@@ -107,6 +108,7 @@ bool set_inactive() {
 	if (!check_active()) return true;
 	
 	logger::log(LVL1, "Setting myself as inactive");
+	if (!Ap.primary) pushover::notify("Returning IP to primary LB", "Load Balancer Update");
 	
 	char buf[512];
 	snprintf(buf, sizeof(buf), "ip address del %s/24 dev %s", Ap.addr, Ap.interface);
