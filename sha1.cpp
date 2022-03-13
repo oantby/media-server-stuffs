@@ -162,9 +162,11 @@ void SHA1::append(const uint8_t *data, size_t bytes) {
 		throw "Cannot append to finished checksum";
 	}
 	if (!bytes) return;
+	size_t pos = 0;
 	while (bytes + lastBlockLen >= sizeof(lastBlock)) {
-		memcpy(lastBlock + lastBlockLen, data, sizeof(lastBlock) - lastBlockLen);
+		memcpy(lastBlock + lastBlockLen, data + pos, sizeof(lastBlock) - lastBlockLen);
 		bytes -= sizeof(lastBlock) - lastBlockLen;
+		pos += sizeof(lastBlock) - lastBlockLen;
 		processBlock(lastBlock);
 		memset(lastBlock, 0, sizeof(lastBlock));
 		lastBlockLen = 0;
