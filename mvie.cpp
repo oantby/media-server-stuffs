@@ -16,6 +16,7 @@ see usage for information on changelog, data dir, etc.
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <aio.h>
 #include <fstream>
 #include "sha1.hpp"
 
@@ -159,8 +160,7 @@ void update_version() {
 	cout << "Version updated to " << (int)version << endl;
 }
 
-static void write_hash() {
-	SHA1 sha(string(Dir) + string(dest));
+static void write_hash(SHA1 *sha) {
 	char *p = strrchr(dest, '/');
 	string hashFile = Dir;
 	if (p) {
@@ -183,7 +183,7 @@ static void write_hash() {
 		cerr << "Failed to open hash file [" << hashFile << "]\n";
 		return;
 	}
-	ofile << sha.hex() << endl;
+	ofile << sha->hex() << endl;
 	ofile.close();
 }
 
@@ -238,37 +238,71 @@ int main(int argc, char **argv) {
 		}
 	}
 	
-	pid_t pid;
-	if ((pid = fork()) == 0) {
-		char fullDest[2048] = {0};
-		strcpy(fullDest, Dir);
-		strcat(fullDest, dest);
-		execl("/bin/mv", "/bin/mv", source, fullDest, (char *)0);
-		perror("exec failed");
-		return 1;
-	} else if (pid == -1) {
-		perror("fork failed");
+	int fd = open(source, O_RDONLY);
+	if (fd == -1) {
+		perror("open");
 		return 1;
 	}
 	
-	while (true) {
-		int stat;
-		pid = wait(&stat);
-		if (pid == -1) {
-			perror("wait()");
+	uint8_t buf[8192];
+	
+	struct aiocb aiobuf;
+	
+	char fullDest[2048] = {0};
+	strcpy(fullDest, Dir);
+	strcat(fullDest, dest);
+	
+	// we must have O_APPEND for aio_write to write at the end.
+	// O_TRUNC to ensure we're overwriting if it exists.
+	// O_CREAT in case it doesn't.
+	int ofd = open(fullDest, O_WRONLY | O_CREAT | O_TRUNC | O_APPEND,
+		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (ofd == -1) {
+		perror("Output open()");
+		return 1;
+	}
+	
+	int n;
+	SHA1 sha;
+	
+	while ((n = read(fd, buf, sizeof(buf)))) {
+		if (n == -1) {
+			perror("read");
 			return 1;
 		}
 		
-		stat = WEXITSTATUS(stat);
-		
-		if (stat == 0) {
-			update_version();
-			// it's pretty inefficient that I'm waiting until now to do this
-			// todo: probably replace /bin/mv with my own read + write + remove,
-			// such that I can calculate the hash in transit.
-			write_hash();
+		// queue a write of the data
+		memset(&aiobuf, 0, sizeof(aiobuf));
+		aiobuf.aio_nbytes = n;
+		aiobuf.aio_buf = buf;
+		aiobuf.aio_fildes = ofd;
+		if (aio_write(&aiobuf) != 0) {
+			perror("aio_write");
+			return 1;
 		}
 		
-		return stat;
+		// write is queued. now we work on our shasum.
+		sha.append(buf, n);
+		
+		while ((n = aio_error(&aiobuf)) == EINPROGRESS) {
+			usleep(1000);
+		}
+		if (n != 0) {
+			cerr << "aio_write failed: " << strerror(n) << endl;
+			return 1;
+		}
+		
+		// need to call this to clean up resources.
+		aio_return(&aiobuf);
 	}
+	
+	close(fd);
+	close(ofd);
+	
+	if (unlink(source) == -1) {
+		perror("Removing source");
+	}
+	
+	update_version();
+	write_hash(&sha);
 }
