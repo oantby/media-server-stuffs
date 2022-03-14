@@ -6,7 +6,10 @@ heartbeat: heartbeat.cpp pushover_notify.cpp
 verify: LDLIBS=
 verify: verify.cpp log.o sha1.o
 
+# Mac
 mvie: LDLIBS=
+# Linux
+mvie: LDLIBS=-lrt
 mvie: mvie.cpp sha1.o
 
 .PHONY : clean
