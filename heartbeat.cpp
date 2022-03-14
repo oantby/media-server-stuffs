@@ -148,6 +148,8 @@ struct {
 	
 	uint_fast16_t cache_exp;
 	
+	bool shuttingDown;
+	
 	int sockfd;
 	int xferFD;
 	
@@ -901,6 +903,9 @@ static void heartbeat(in_addr_t addr, short port, bool convert = false) {
 			*(uint8_t *)&buf[4] |= FORCE_DOWN_BIT;
 		}
 	}
+	if (Ap.shuttingDown) {
+		*(uint8_t *)&buf[4] |= FORCE_DOWN_BIT;
+	}
 	
 	if (*Ap.statusBackupPath) {
 		struct stat dummy;
@@ -992,6 +997,12 @@ static void interrupt(int signal) {
 	}
 	if (signal == SIGBUS) longjmp(Ap.jbuf, 1);
 	if (signal == SIGUSR1) printStatus();
+	if (signal == SIGTERM) {
+		Ap.shuttingDown = true;
+		log(LVL1, "Shutting down. Sending heartbeat.");
+		if (*(uint32_t *)&Ap.hbclient) heartbeat(Ap.hbclient, Ap.cliport);
+		exit(0);
+	}
 }
 
 void usage(char **argv) {
@@ -1350,6 +1361,7 @@ int main(int argc, char **argv) {
 	
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGUSR1, &act, NULL);
+	sigaction(SIGTERM, &act, NULL);
 	
 	act.sa_handler = SIG_IGN;
 	
