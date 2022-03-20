@@ -227,6 +227,7 @@ void send_down() {
 
 void interrupt(int sig) {
 	if (sig == SIGTERM) {
+		set_inactive();
 		send_down();
 		logger::log(LVL1, "Shutting down at system request.");
 		exit(0);
