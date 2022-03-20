@@ -429,11 +429,6 @@ int main(int argc, char **argv) {
 		
 		logger::log(LVL3, "Received %d bytes", n);
 		
-		if (n < 2) {
-			logger::log(LVL2, "Packet too short to mean anything");
-			continue;
-		}
-		
 		switch(buf[0]) {
 			case REQ:
 				process_req(&client_addr, (char *)buf, n);
