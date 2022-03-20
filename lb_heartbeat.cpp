@@ -43,8 +43,6 @@ using namespace std;
 
 namespace pushover {bool notify(const char *m, const char *s);}
 
-struct sockaddr_in client_addr;
-
 struct APP_INFO {
 	bool primary = false;
 	short cliport = htons(8002);
@@ -55,6 +53,7 @@ struct APP_INFO {
 	in_addr_t myAddr = 0;
 	int sockfd = 0;
 	char interface[20] = {0};
+	struct sockaddr_in last_client_addr;
 } Ap;
 
 void usage(char **argv) {
@@ -210,7 +209,7 @@ void heartbeat() {
 
 void send_down() {
 	// we're sending this off to whatever our last client was.
-	if (!*(uint32_t *)&client_addr.sin_addr.s_addr) {
+	if (!*(uint32_t *)&Ap.last_client_addr.sin_addr.s_addr) {
 		logger::log(LVL1, "No client addr available. Not sending DOWN");
 		return;
 	}
@@ -218,9 +217,9 @@ void send_down() {
 	char buf;
 	buf = DOWN;
 	
-	if (sendto(Ap.sockfd, &buf, 1, MSG_CONFIRM, (struct sockaddr *)&client_addr, sizeof(client_addr)) > 0) {
+	if (sendto(Ap.sockfd, &buf, 1, MSG_CONFIRM, (struct sockaddr *)&Ap.last_client_addr, sizeof(Ap.last_client_addr)) > 0) {
 		logger::log(LVL2, "Sent DOWN notification to %s port %d",
-			inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+			inet_ntoa(Ap.last_client_addr.sin_addr), ntohs(Ap.last_client_addr.sin_port));
 	} else {
 		logger::log(LVL1, "Failed to send DOWN notification: %s", strerror(errno));
 	}
@@ -324,8 +323,7 @@ int main(int argc, char **argv) {
 	sigaction(SIGTERM, &act, NULL);
 	
 	uint8_t buf[10];
-	// client_addr global so send_down can use it.
-	struct sockaddr_in my_addr;
+	struct sockaddr_in my_addr, client_addr;
 	time_t now, lastMsg;
 	now = lastMsg = time(NULL);
 	
@@ -426,6 +424,8 @@ int main(int argc, char **argv) {
 			}
 			continue;
 		}
+		
+		Ap.last_client_addr = client_addr;
 		
 		logger::log(LVL3, "Received %d bytes", n);
 		
