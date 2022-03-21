@@ -872,7 +872,7 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				
 				// make sure we're not already working on writing this slice.
 				for (int_fast8_t i = 0; i < 8; i++) {
-					if (slices_ip[i] == slice_id) {
+					if (slices_ip[i] == (int64_t)slice_id) {
 						log(LVL3, "Already writing slice [%d]", slice_id);
 						return;
 					}
