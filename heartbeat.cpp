@@ -833,7 +833,16 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 				if (idx == -1) {
 					// there's not one available to use. we need to wait for one.
 					log(LVL2, "No aio handles available. Waiting for one.");
-					aio_suspend((const struct aiocb *const *)aio_callbacks, 8, NULL);
+					struct aiocb *callbacks[8];
+					callbacks[0] = &aio_callbacks[0];
+					callbacks[1] = &aio_callbacks[1];
+					callbacks[2] = &aio_callbacks[2];
+					callbacks[3] = &aio_callbacks[3];
+					callbacks[4] = &aio_callbacks[4];
+					callbacks[5] = &aio_callbacks[5];
+					callbacks[6] = &aio_callbacks[6];
+					callbacks[7] = &aio_callbacks[7];
+					aio_suspend(callbacks, 8, NULL);
 					log(LVL2, "Finished waiting for a handle.");
 					// we've already looped through them for cleaning once.
 					// now we just care about moving on. find the first done
