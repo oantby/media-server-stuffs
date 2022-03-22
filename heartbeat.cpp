@@ -800,78 +800,24 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 					return;
 				}
 				
-				static int64_t slices_ip[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
-				static struct aiocb aio_callbacks[8];
-				
-				int t;
-				int_fast8_t idx = -1;
-				// we'll loop through all to see if they're done.
-				// the first available slot is grabbed for idx.
-				for (int_fast8_t i = 0; i < 8; i++) {
-					if (slices_ip[i] != -1) {
-						// check if this one's done, and close it out if so.
-						t = aio_error(aio_callbacks + i);
-						if (t == 0) {
-							// this one is done. close out.
-							SETRETRBIT(slices_ip[i]);
-							aio_return(aio_callbacks + i);
-							slices_ip[i] = -1;
-							free((void *)aio_callbacks[i].aio_buf);
-							idx = i;
-						} else if (t != EINPROGRESS) {
-							// an error occurred.
-							log(LVL1, "Write of slice [%d] failed: %s",
-								slices_ip[i], strerror(t));
-							aio_return(aio_callbacks + i);
-							slices_ip[i] = -1;
-							free((void *)aio_callbacks[i].aio_buf);
-							idx = i;
-						}
-					}
-					if (idx == -1 && slices_ip[i] == -1) idx = i;
+				static int64_t slice_ip = -1;
+				static struct aiocb aio_callback;
+				static void *data_p = NULL;
+				if (!data_p) {
+					data_p = malloc(64000);
 				}
-				if (idx == -1) {
-					// there's not one available to use. we need to wait for one.
-					log(LVL2, "No aio handles available. Waiting for one.");
-					struct aiocb *callbacks[8];
-					callbacks[0] = &aio_callbacks[0];
-					callbacks[1] = &aio_callbacks[1];
-					callbacks[2] = &aio_callbacks[2];
-					callbacks[3] = &aio_callbacks[3];
-					callbacks[4] = &aio_callbacks[4];
-					callbacks[5] = &aio_callbacks[5];
-					callbacks[6] = &aio_callbacks[6];
-					callbacks[7] = &aio_callbacks[7];
-					aio_suspend(callbacks, 8, NULL);
-					log(LVL2, "Finished waiting for a handle.");
-					// we've already looped through them for cleaning once.
-					// now we just care about moving on. find the first done
-					// one and set it as our winner.
-					for (int_fast8_t i = 0; i < 8; i++) {
-						t = aio_error(aio_callbacks + i);
-						if (t == 0) {
-							aio_return(aio_callbacks + i);
-							SETRETRBIT(slices_ip[i]);
-							slices_ip[i] = -1;
-							free((void *)aio_callbacks[i].aio_buf);
-							idx = i;
-							break;
-						} else if (t != EINPROGRESS) {
-							log(LVL1, "Write of slice [%d] failed: %s",
-								slices_ip[i], strerror(t));
-							aio_return(aio_callbacks + i);
-							slices_ip[i] = -1;
-							free((void *)aio_callbacks[i].aio_buf);
-							idx = i;
-							break;
-						}
+				
+				if (slice_ip != -1) {
+					// wait for current slice to finish.
+					struct aiocb *aio_p = &aio_callback;
+					aio_suspend(&aio_p, 1, NULL);
+					if (aio_return(&aio_callback) == -1) {
+						log(LVL1, "Write of slice [%d] failed: %s",
+							slice_ip, strerror(errno));
+					} else {
+						SETRETRBIT(slice_ip);
 					}
-					if (idx == -1) {
-						// this should not be possible, as aio_suspend promised
-						// us one of these was finished.
-						log(LVL1, "aio_suspend returned, but no callbacks reported done.");
-						exit(1);
-					}
+					slice_ip = -1;
 				}
 				
 				if (RETRIEVEDBIT(slice_id)) {
@@ -879,30 +825,20 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 					return;
 				}
 				
-				// make sure we're not already working on writing this slice.
-				for (int_fast8_t i = 0; i < 8; i++) {
-					if (slices_ip[i] == (int64_t)slice_id) {
-						log(LVL3, "Already writing slice [%d]", slice_id);
-						return;
-					}
-				}
-				
 				// prepare the aio handle.
-				memset(&aio_callbacks[idx], 0, sizeof(aio_callbacks[idx]));
+				memset(&aio_callback, 0, sizeof(aio_callback));
+				aio_callback.aio_buf = data_p;
+				memcpy(data_p, buf + 8, n - 8);
+				aio_callback.aio_nbytes = n - 8;
+				aio_callback.aio_fildes = Ap.xferFD;
+				aio_callback.aio_offset = (off_t)slice_id * (off_t)64000;
 				
-				aio_callbacks[idx].aio_buf = malloc(n - 8);
-				memcpy((void *)aio_callbacks[idx].aio_buf, buf + 8, n - 8);
-				aio_callbacks[idx].aio_nbytes = n - 8;
-				aio_callbacks[idx].aio_fildes = Ap.xferFD;
-				aio_callbacks[idx].aio_offset = (off_t)slice_id * (off_t)64000;
-				
-				if (aio_write(&aio_callbacks[idx]) != 0) {
+				if (aio_write(&aio_callback) != 0) {
 					log(LVL1, "Failed to initiate aio_write: %s", strerror(errno));
-					free((void *)aio_callbacks[idx].aio_buf);
 				} else {
 					// our own bookkeeping.
-					slices_ip[idx] = slice_id;
-					log(LVL3, "Started write for slice [%d] in slot [%d]", slice_id, idx);
+					slice_ip = slice_id;
+					log(LVL3, "Started write for slice [%d]", slice_ip);
 				}
 				
 			}
