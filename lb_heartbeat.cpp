@@ -39,6 +39,7 @@ using namespace std;
 
 #define REQ 1
 #define ACK 2
+#define DOWN 3
 
 namespace pushover {bool notify(const char *m, const char *s);}
 
@@ -52,6 +53,7 @@ struct APP_INFO {
 	in_addr_t myAddr = 0;
 	int sockfd = 0;
 	char interface[20] = {0};
+	struct sockaddr_in last_client_addr;
 } Ap;
 
 void usage(char **argv) {
@@ -205,7 +207,31 @@ void heartbeat() {
 	}
 }
 
+void send_down() {
+	// we're sending this off to whatever our last client was.
+	if (!*(uint32_t *)&Ap.last_client_addr.sin_addr.s_addr) {
+		logger::log(LVL1, "No client addr available. Not sending DOWN");
+		return;
+	}
+	
+	char buf;
+	buf = DOWN;
+	
+	if (sendto(Ap.sockfd, &buf, 1, MSG_CONFIRM, (struct sockaddr *)&Ap.last_client_addr, sizeof(Ap.last_client_addr)) > 0) {
+		logger::log(LVL2, "Sent DOWN notification to %s port %d",
+			inet_ntoa(Ap.last_client_addr.sin_addr), ntohs(Ap.last_client_addr.sin_port));
+	} else {
+		logger::log(LVL1, "Failed to send DOWN notification: %s", strerror(errno));
+	}
+}
+
 void interrupt(int sig) {
+	if (sig == SIGTERM) {
+		set_inactive();
+		send_down();
+		logger::log(LVL1, "Shutting down at system request.");
+		exit(0);
+	}
 	if (!Ap.primary) heartbeat();
 	if (Ap.primary) set_active();
 }
@@ -239,6 +265,15 @@ void send_garp() {
 	usleep(50000);
 	garp((uint8_t *)&Ap.addr_t, Ap.interface);
 	logger::log(LVL2, "garp sent");
+}
+
+void process_down(struct sockaddr_in *client, char *buf, int n) {
+	// if we're not the primary, this is an indication from the primary
+	// that it's on its way down, and we should take over.
+	if (!Ap.primary && !check_active()) {
+		set_active();
+		send_garp();
+	}
 }
 
 // process a REQ (heartbeat/request for ack)
@@ -286,6 +321,7 @@ int main(int argc, char **argv) {
 	
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGUSR1, &act, NULL);
+	sigaction(SIGTERM, &act, NULL);
 	
 	uint8_t buf[10];
 	struct sockaddr_in my_addr, client_addr;
@@ -303,10 +339,10 @@ int main(int argc, char **argv) {
 	
 	process_args(argc, argv);
 	
-	// run every second, since this is a nearly-no-footprint app and we want
-	// near zero downtime. 3 seconds without a response is deemed down.
-	alarmTime.it_interval.tv_sec = 1;
-	alarmTime.it_value.tv_sec = 1;
+	// run thrice per second, since this is a nearly-no-footprint app and we want
+	// near zero downtime. 1 second without a response is deemed down.
+	alarmTime.it_interval.tv_usec = 333333;
+	alarmTime.it_value.tv_usec = 333333;
 	
 	// set a timer if we're not primary. primary receives and responds.
 	if (setitimer(ITIMER_REAL, &alarmTime, NULL) == -1) {
@@ -332,6 +368,7 @@ int main(int argc, char **argv) {
 	sigemptyset(&sigset);
 	sigaddset(&sigset, SIGALRM);
 	sigaddset(&sigset, SIGUSR1);
+	sigaddset(&sigset, SIGTERM);
 	
 	while (true) {
 		errno = 0;
@@ -369,7 +406,7 @@ int main(int argc, char **argv) {
 			replaceMe(argc, argv);
 		}
 		
-		if (!Ap.primary && now > lastMsg + 3) {
+		if (!Ap.primary && now > lastMsg + 1) {
 			if (!check_active()) {
 				set_active();
 				send_garp();
@@ -389,12 +426,9 @@ int main(int argc, char **argv) {
 			continue;
 		}
 		
-		logger::log(LVL3, "Received %d bytes", n);
+		Ap.last_client_addr = client_addr;
 		
-		if (n < 2) {
-			logger::log(LVL2, "Packet too short to mean anything");
-			continue;
-		}
+		logger::log(LVL3, "Received %d bytes", n);
 		
 		switch(buf[0]) {
 			case REQ:
@@ -402,6 +436,9 @@ int main(int argc, char **argv) {
 				break;
 			case ACK:
 				process_ack(&client_addr, (char *)buf, n);
+				break;
+			case DOWN:
+				process_down(&client_addr, (char *)buf, n);
 				break;
 			default:
 				logger::log(LVL1, "Unknown OP: %d", (int)buf[0]);
