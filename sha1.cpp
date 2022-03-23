@@ -171,7 +171,7 @@ void SHA1::append(const uint8_t *data, size_t bytes) {
 		memset(lastBlock, 0, sizeof(lastBlock));
 		lastBlockLen = 0;
 	}
-	memcpy(lastBlock + lastBlockLen, data, bytes);
+	memcpy(lastBlock + lastBlockLen, data + pos, bytes);
 	lastBlockLen += bytes;
 }
 
