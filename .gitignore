@@ -4,3 +4,5 @@ a.out
 # final outputs
 Makefile
 heartbeat
+node_check
+sha1
