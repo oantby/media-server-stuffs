@@ -4,6 +4,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
+#include <string.h>
+
+#ifdef __linux__
+#define MTIME_FIELD st_mtim
+#else
+#define MTIME_FIELD st_mtimespec
+#endif
 
 using namespace std;
 
@@ -26,8 +33,8 @@ int main() {
 			cerr << "Failed to stat " << ent->d_name << ": " << strerror(errno) << endl;
 			continue;
 		}
-		if (now > (2 * 86400) + finfo.st_mtimespec.tv_sec) {
-			strftime(dbuf, sizeof(dbuf), "%Y-%m-%d %H:%M:%S", localtime(&finfo.st_mtimespec.tv_sec));
+		if (now > (2 * 86400) + finfo.MTIME_FIELD.tv_sec) {
+			strftime(dbuf, sizeof(dbuf), "%Y-%m-%d %H:%M:%S", localtime(&finfo.MTIME_FIELD.tv_sec));
 			if (first) {
 				first = false;
 				cout << "The following nodes haven't updated in >48 hours" << endl;
