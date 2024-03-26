@@ -18,7 +18,6 @@ int main() {
 	struct stat finfo;
 	time_t now = time(NULL);
 	char dbuf[100];
-	struct tm *ptm;
 	bool first = true;
 	while ((ent = readdir(dir))) {
 		if (ent->d_type != DT_REG) continue;
