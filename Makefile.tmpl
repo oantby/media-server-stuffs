@@ -1,3 +1,7 @@
+# Mac
+LDLIBS=-lcurl
+# Linux
+LDLIBS=-lcurl -lrt
 .PHONY : all
 
 all : heartbeat verify mvie

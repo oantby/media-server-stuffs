@@ -19,7 +19,6 @@ if ! echo 'int main(){}' | g++ -x c++ -lcurl -o /dev/null - &>/dev/null; then
 fi
 
 echo 'CXXFLAGS=-Wall -std='$STD > Makefile
-echo 'LDLIBS=-lcurl' >> Makefile
 if [[ $(uname) = "Linux" ]]; then
 	awk '/^# Mac/{skipperino=1; next} skipperino{skipperino=0; next} {print}' Makefile.tmpl >> Makefile
 else

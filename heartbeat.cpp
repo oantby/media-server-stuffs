@@ -18,6 +18,7 @@
 #include <setjmp.h>
 #include <fcntl.h>
 #include <math.h>
+#include <aio.h>
 #include <sys/mman.h>
 #ifdef __linux__
 	#include <sys/sysinfo.h>
@@ -799,45 +800,47 @@ static void file_process_v1(struct sockaddr_in client, char *buf, size_t n) {
 					return;
 				}
 				
+				static int64_t slice_ip = -1;
+				static struct aiocb aio_callback;
+				static void *data_p = NULL;
+				if (!data_p) {
+					data_p = malloc(64000);
+				}
+				
+				if (slice_ip != -1) {
+					// wait for current slice to finish.
+					struct aiocb *aio_p = &aio_callback;
+					aio_suspend(&aio_p, 1, NULL);
+					if (aio_return(&aio_callback) == -1) {
+						log(LVL1, "Write of slice [%d] failed: %s",
+							slice_ip, strerror(errno));
+					} else {
+						SETRETRBIT(slice_ip);
+					}
+					slice_ip = -1;
+				}
+				
 				if (RETRIEVEDBIT(slice_id)) {
 					log(LVL3, "Already had slice %d", slice_id);
 					return;
 				}
 				
-				// write the slice into the file.
-				int written = pwrite(Ap.xferFD, buf + 8, n - 8, (off_t)slice_id * (off_t)64000);
-				if (written == -1) {
-					log(LVL1, "Failed to write to xfer file: %s", strerror(errno));
+				// prepare the aio handle.
+				memset(&aio_callback, 0, sizeof(aio_callback));
+				aio_callback.aio_buf = data_p;
+				memcpy(data_p, buf + 8, n - 8);
+				aio_callback.aio_nbytes = n - 8;
+				aio_callback.aio_fildes = Ap.xferFD;
+				aio_callback.aio_offset = (off_t)slice_id * (off_t)64000;
+				
+				if (aio_write(&aio_callback) != 0) {
+					log(LVL1, "Failed to initiate aio_write: %s", strerror(errno));
 				} else {
-					log(LVL2, "Wrote %d bytes from slice %ld", written, slice_id);
-					SETRETRBIT(slice_id);
+					// our own bookkeeping.
+					slice_ip = slice_id;
+					log(LVL3, "Started write for slice [%d]", slice_ip);
 				}
 				
-				// check if we have all the slices written in.
-				bool done = true;
-				for (size_t i = 0; i < ceil((double)Ap.retrieveSize / 64000.0); i++) {
-					if (!RETRIEVEDBIT(i)) {
-						done = false;
-						break;
-					}
-				}
-				if (done) {
-					Ap.retrieveStatus = STAT_DONE;
-					if (Ap.xferTS.tv_sec == 0) {
-						futimes(Ap.xferFD, NULL);
-					} else {
-						struct timeval times[2];
-						times[0] = Ap.xferTS;
-						times[1] = Ap.xferTS;
-						
-						futimes(Ap.xferFD, times);
-					}
-					close(Ap.xferFD);
-					Ap.xferFD = -1;
-					log(LVL1, "File retrieval done");
-					// nothing left to do on this round.
-					return;
-				}
 			}
 			break;
 	}
